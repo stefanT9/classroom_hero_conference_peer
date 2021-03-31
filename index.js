@@ -2,11 +2,11 @@ const express = require('express')
 const { ExpressPeerServer } = require('peer')
 const cors = require('cors')
 const http = require('http')
-const socketio = require('socket.io')
+const socketIo = require('socket.io')
 
 const app = express()
 const server = http.createServer(app)
-const io = socketio(server)
+const io = socketIo(server)
 
 const { userJoin, getRoomUsers, getUser, userLeave } = require('./utils/users');
 

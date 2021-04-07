@@ -1,25 +1,36 @@
+require("source-map-support").install();
+
 const express = require("express");
 const { ExpressPeerServer } = require("peer");
 const cors = require("cors");
 const http = require("http");
 const socketIo = require("socket.io");
-
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
 
+const httpProxy = require("http-proxy");
+var proxy = httpProxy.createProxyServer();
 const { userJoin, getRoomUsers, getUser, userLeave } = require("./utils/users");
 
 app.use(cors());
 
-app.get("/", (req, res, next) => res.send("Hello world!"));
+const server = http.createServer(app);
+const io = socketIo(server);
 
 const peerServer = ExpressPeerServer(server, {
   debug: true,
 });
-
 app.use("/signaling", peerServer);
-
+app.use("/api", (req, res, next) => {
+  console.log("proxied request", req.url, req.method);
+  proxy.web(
+    req,
+    res,
+    {
+      target: "http://localhost:8080",
+    },
+    next
+  );
+});
 io.on("connection", (socket) => {
   socket.on("join-room", ({ id, username, room }) => {
     const user = userJoin(id, username, room);
@@ -77,4 +88,5 @@ io.on("connection", (socket) => {
 server.listen(9000, () =>
   console.log(`Server running on http://127.0.0.1:${9000}`)
 );
+
 io.listen(server);

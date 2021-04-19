@@ -33,7 +33,17 @@ app.use("/api", (req, res, next) => {
 });
 io.on("connection", (socket) => {
   socket.on("join-room", ({ id, username, room }) => {
+    console.log("user joined ", { id, username, room });
+    if (id === null) {
+      console.log("invalid user id", { id, username, room });
+      return;
+    }
     const user = userJoin(id, username, room);
+    if (user === null) {
+      // user is already in room
+      console.log("user already in room ", { id, username, room });
+      return;
+    }
     socket.join(user.room);
     // Broadcast when  a user connects
     socket.broadcast
@@ -48,6 +58,7 @@ io.on("connection", (socket) => {
 
     // Runs when client disconnects
     socket.on("disconnect", () => {
+      console.log("user disconected ", { id, username, room });
       const user = userLeave(id);
 
       if (user) {
@@ -61,6 +72,9 @@ io.on("connection", (socket) => {
       }
     });
 
+    socket.on("image", () => {
+      console.log("recieved image");
+    });
     // Listen to WebcamOn
     socket.on("webcam-on", () => {
       user.cam = true;
@@ -90,3 +104,15 @@ server.listen(9000, () =>
 );
 
 io.listen(server);
+
+const { getImageResults } = require("./utils/imageUtils");
+
+const imgBase64_1 = "";
+const imgBase64_2 = "";
+const imgBase64_3 = "";
+const imgBase64_4 = "";
+
+getImageResults(imgBase64_1);
+getImageResults(imgBase64_2);
+getImageResults(imgBase64_3);
+getImageResults(imgBase64_4);

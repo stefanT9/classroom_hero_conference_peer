@@ -8,6 +8,9 @@ const getImageResults = async (imgBase64) => {
   const [result] = await client.faceDetection(imgBase64);
   const faces = result.faceAnnotations;
   console.log("Faces:");
+  if (faces.length === 0) {
+    console.log("Absent");
+  }
   faces.forEach((face, i) => {
     console.log(`  Face #${i + 1}:`);
     console.log(`    Joy: ${face.joyLikelihood}`);

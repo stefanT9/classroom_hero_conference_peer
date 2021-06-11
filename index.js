@@ -1,5 +1,11 @@
 require("source-map-support").install();
-
+const { getImageResults } = require("./utils/imageUtils");
+const bucketName = "licenta-297213.appspot.com";
+const { uuid } = require("uuidv4");
+var stream = require("stream");
+const { Storage } = require("@google-cloud/storage");
+const storage = new Storage();
+const myBucket = storage.bucket("licenta-297213.appspot.com");
 const express = require("express");
 const { ExpressPeerServer } = require("peer");
 const cors = require("cors");
@@ -9,7 +15,8 @@ const app = express();
 
 const httpProxy = require("http-proxy");
 var proxy = httpProxy.createProxyServer();
-const { userJoin, getRoomUsers, getUser, userLeave } = require("./utils/users");
+const { userJoin, getRoomUsers, userLeave, getUser } = require("./utils/users");
+const { join } = require("path");
 
 app.use(cors());
 
@@ -31,7 +38,10 @@ app.use("/api", (req, res, next) => {
     next
   );
 });
+
 io.on("connection", (socket) => {
+  console.log("got connection");
+  let joinedUser = null;
   socket.on("join-room", ({ id, username, room }) => {
     console.log("user joined ", { id, username, room });
     if (id === null) {
@@ -39,6 +49,8 @@ io.on("connection", (socket) => {
       return;
     }
     const user = userJoin(id, username, room);
+    joinedUser = user;
+
     if (user === null) {
       // user is already in room
       console.log("user already in room ", { id, username, room });
@@ -55,47 +67,83 @@ io.on("connection", (socket) => {
       room: user.room,
       users: getRoomUsers(user.room),
     });
+  });
 
-    // Runs when client disconnects
-    socket.on("disconnect", () => {
-      console.log("user disconected ", { id, username, room });
-      const user = userLeave(id);
+  // Runs when client disconnects
+  socket.on("disconnect", () => {
+    console.log("user disconected ", { ...joinedUser });
 
-      if (user) {
-        io.to(user.room).emit("room-users-left", { userId: user.username });
+    if (joinedUser) {
+      const user = userLeave(joinedUser.id);
+      io.to(joinedUser.room).emit("room-users-left", { userId: user.username });
 
-        // Send users and room info
-        io.to(user.room).emit("room-users", {
-          room: user.room,
-          users: getRoomUsers(user.room),
+      // Send users and room info
+      io.to(joinedUser.room).emit("room-users", {
+        room: joinedUser.room,
+        users: getRoomUsers(joinedUser.room),
+      });
+      joinedUser = null;
+    }
+  });
+
+  socket.on("image", ({ base64Img }) => {
+    console.log("here i am ");
+    if (joinedUser) {
+      const randomName = `${uuid()}.jpg`;
+      const file = myBucket.file(randomName);
+      var bufferStream = new stream.PassThrough();
+
+      bufferStream.end(Buffer.from(base64Img, "base64"));
+      bufferStream
+        .pipe(
+          file.createWriteStream({
+            metadata: {
+              contentType: "image/jpeg",
+              metadata: {
+                custom: "metadata",
+              },
+            },
+            public: true,
+            validation: "md5",
+          })
+        )
+        .on("error", function (err) {})
+        .on("finish", function () {
+          console.log("image uploaded");
+          getImageResults(`gs://${bucketName}/${randomName}`);
         });
-      }
-    });
+    }
+  });
+  // Listen to WebcamOn
+  socket.on("webcam-on", () => {
+    if (joinedUser) {
+      joinedUser.cam = true;
+      io.to(joinedUser.room).emit("add-webcam-icon", user.id);
+    }
+  });
 
-    socket.on("image", () => {
-      console.log("recieved image");
-    });
-    // Listen to WebcamOn
-    socket.on("webcam-on", () => {
-      user.cam = true;
-      io.to(user.room).emit("add-webcam-icon", user.id);
-    });
-
-    // Listen to webcamOff
-    socket.on("webcam-off", () => {
-      user.cam = false;
+  // Listen to webcamOff
+  socket.on("webcam-off", () => {
+    if (joinedUser) {
+      joinedUser.cam = false;
       io.to(user.room).emit("remove-webcam-icon-stream-called", user.id);
-    });
+    }
+  });
 
-    socket.on("room-chat-message-post", (message) => {
+  socket.on("room-chat-message-post", (message) => {
+    if (joinedUser) {
       console.log("recived a new message in chat", message);
-      io.to(user.room).emit("room-chat-message-post", message);
-    });
+      io.to(joinedUser.room).emit("room-chat-message-post", message);
+    }
+  });
 
-    socket.on("room-chat-message-history", () => {
+  socket.on("room-chat-message-history", () => {
+    const user = joinedUser;
+
+    if (user) {
       console.log("sending message history");
       io.to(user.id).emit("room-chat-message-all", { messages: [] });
-    });
+    }
   });
 });
 
@@ -104,15 +152,3 @@ server.listen(9000, () =>
 );
 
 io.listen(server);
-
-const { getImageResults } = require("./utils/imageUtils");
-
-const imgBase64_1 = "";
-const imgBase64_2 = "";
-const imgBase64_3 = "";
-const imgBase64_4 = "";
-
-getImageResults(imgBase64_1);
-getImageResults(imgBase64_2);
-getImageResults(imgBase64_3);
-getImageResults(imgBase64_4);

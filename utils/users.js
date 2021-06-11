@@ -1,8 +1,5 @@
 var users = [];
 
-setInterval(() => {
-  console.log("connected users", users);
-}, 1000);
 // join user to chat
 function userJoin(id, username, room) {
   const user = { id, username, room, cam: false };

@@ -68,7 +68,7 @@ io.on("connection", (socket) => {
     });
     dataCollectionInterval = setInterval(() => {
       io.to(user.room).emit("get-image");
-    }, 3000);
+    }, 100000);
   });
 
   // Runs when client disconnects
@@ -108,6 +108,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("room-chat-message-post", (message) => {
+    console.log("meesage ");
+    console.log(joinedUser);
     if (joinedUser) {
       console.log("recived a new message in chat", message);
       io.to(joinedUser.room).emit("room-chat-message-post", message);

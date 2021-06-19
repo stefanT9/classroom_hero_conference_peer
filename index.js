@@ -138,6 +138,9 @@ io.on("connection", (socket) => {
           )
           .then(({ data }) => {
             console.log(data);
+          })
+          .catch((err) => {
+            console.log(err);
           });
       });
     } catch (err) {

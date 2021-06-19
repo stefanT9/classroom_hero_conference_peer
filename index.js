@@ -146,8 +146,8 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(9000, "127.0.0.1", () =>
-  console.log(`Server running on http://127.0.0.1:${9000}`)
+server.listen(9001, () =>
+  console.log(`Server running on http://127.0.0.1:${90001}`)
 );
 
-io.listen(server, "127.0.0.1");
+io.listen(server);

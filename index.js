@@ -127,21 +127,21 @@ io.on("connection", (socket) => {
       getImageResults(data.img).then((results) => {
         console.log(joinedUser);
         console.log(results, results.absent ? "absent" : "emotions");
-        return axios
-          .post(
-            `http://localhost:8080/conference/${joinedUser.room}/metadata`,
-            {
+        const room = joinedUser ? joinedUser.room : "";
+        if (room) {
+          return axios
+            .post(`http://localhost:8080/conference/${room}/metadata`, {
               user: joinedUser,
               metadata: results,
               type: results.absent ? "absent" : "emotions",
-            }
-          )
-          .then(({ data }) => {
-            console.log(data);
-          })
-          .catch((err) => {
-            console.log(err);
-          });
+            })
+            .then(({ data }) => {
+              console.log(data);
+            })
+            .catch((err) => {
+              console.log(err);
+            });
+        }
       });
     } catch (err) {
       console.log(err);

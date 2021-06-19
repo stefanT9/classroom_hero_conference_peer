@@ -1,13 +1,9 @@
 require("source-map-support").install();
 const { getImageResults } = require("./utils/imageUtils");
-const bucketName = "licenta-297213.appspot.com";
-const { uuid } = require("uuidv4");
-var stream = require("stream");
-const { Storage } = require("@google-cloud/storage");
-const storage = new Storage();
-const myBucket = storage.bucket("licenta-297213.appspot.com");
 const express = require("express");
 const { ExpressPeerServer } = require("peer");
+const axios = require("axios");
+
 const cors = require("cors");
 const http = require("http");
 const socketIo = require("socket.io");
@@ -15,7 +11,7 @@ const app = express();
 
 const httpProxy = require("http-proxy");
 var proxy = httpProxy.createProxyServer();
-const { userJoin, getRoomUsers, userLeave, getUser } = require("./utils/users");
+const { userJoin, getRoomUsers, userLeave } = require("./utils/users");
 const { join } = require("path");
 
 app.use(cors());
@@ -26,6 +22,7 @@ const io = socketIo(server);
 const peerServer = ExpressPeerServer(server, {
   debug: true,
 });
+
 app.use("/signaling", peerServer);
 app.use("/api", (req, res, next) => {
   console.log("proxied request", req.url, req.method);
@@ -42,6 +39,8 @@ app.use("/api", (req, res, next) => {
 io.on("connection", (socket) => {
   console.log("got connection");
   let joinedUser = null;
+  let dataCollectionInterval = null;
+
   socket.on("join-room", ({ id, username, room }) => {
     console.log("user joined ", { id, username, room });
     if (id === null) {
@@ -67,6 +66,9 @@ io.on("connection", (socket) => {
       room: user.room,
       users: getRoomUsers(user.room),
     });
+    dataCollectionInterval = setInterval(() => {
+      io.to(user.room).emit("get-image");
+    }, 3000);
   });
 
   // Runs when client disconnects
@@ -84,36 +86,11 @@ io.on("connection", (socket) => {
       });
       joinedUser = null;
     }
-  });
-
-  socket.on("image", ({ base64Img }) => {
-    console.log("here i am ");
-    if (joinedUser) {
-      const randomName = `${uuid()}.jpg`;
-      const file = myBucket.file(randomName);
-      var bufferStream = new stream.PassThrough();
-
-      bufferStream.end(Buffer.from(base64Img, "base64"));
-      bufferStream
-        .pipe(
-          file.createWriteStream({
-            metadata: {
-              contentType: "image/jpeg",
-              metadata: {
-                custom: "metadata",
-              },
-            },
-            public: true,
-            validation: "md5",
-          })
-        )
-        .on("error", function (err) {})
-        .on("finish", function () {
-          console.log("image uploaded");
-          getImageResults(`gs://${bucketName}/${randomName}`);
-        });
+    if (dataCollectionInterval) {
+      clearInterval(dataCollectionInterval);
     }
   });
+
   // Listen to WebcamOn
   socket.on("webcam-on", () => {
     if (joinedUser) {
@@ -143,6 +120,28 @@ io.on("connection", (socket) => {
     if (user) {
       console.log("sending message history");
       io.to(user.id).emit("room-chat-message-all", { messages: [] });
+    }
+  });
+  socket.on("get-image-response", (data) => {
+    try {
+      getImageResults(data.img).then((results) => {
+        console.log(joinedUser);
+        console.log(results, results.absent ? "absent" : "emotions");
+        return axios
+          .post(
+            `http://localhost:8080/conference/${joinedUser.room}/metadata`,
+            {
+              user: joinedUser,
+              metadata: results,
+              type: results.absent ? "absent" : "emotions",
+            }
+          )
+          .then(({ data }) => {
+            console.log(data);
+          });
+      });
+    } catch (err) {
+      console.log(err);
     }
   });
 });

@@ -38,7 +38,6 @@ app.use("/api", (req, res, next) => {
 
 io.on("connection", (socket) => {
   console.log("got connection");
-  let joinedUser = null;
   let dataCollectionInterval = null;
 
   socket.on("join-room", ({ id, username, room }) => {
@@ -47,93 +46,84 @@ io.on("connection", (socket) => {
       console.log("invalid user id", { id, username, room });
       return;
     }
-    const user = userJoin(id, username, room);
-    joinedUser = user;
+    const user = { id, username, room, cam: false };
 
     if (user === null) {
       // user is already in room
       console.log("user already in room ", { id, username, room });
       return;
     }
-    socket.join(user.room);
+
     // Broadcast when  a user connects
     socket.broadcast
       .to(user.room)
-      .emit("room-users-joined", { userId: user.id, username: username });
+      .emit("room-users-joined", { userId: user.id, username });
+    io.to(user.room).emit("user-joined", {
+      user,
+    });
+
+    socket.join(user.room);
 
     // Send users and Room info
-    io.to(user.room).emit("room-users", {
-      room: user.room,
-      users: getRoomUsers(user.room),
-    });
+    // io.to(user.room).emit("room-users", {
+    //   room: user.room,
+    //   users: getRoomUsers(user.room),
+    // });
+
+    // Image analysis interval
     dataCollectionInterval = setInterval(() => {
-      io.to(user.room).emit("get-image");
+      // io.to(user.room).emit("get-image");
     }, 100000);
-  });
 
-  // Runs when client disconnects
-  socket.on("disconnect", () => {
-    console.log("user disconected ", { ...joinedUser });
+    // Runs when client disconnects
+    socket.on("disconnect", () => {
+      console.log("user disconected ", { ...user });
 
-    if (joinedUser) {
-      const user = userLeave(joinedUser.id);
-      io.to(joinedUser.room).emit("room-users-left", { userId: user.username });
+      // const user = userLeave(joinedUser.id);
+      io.to(user.room).emit("room-users-left", {
+        userId: user.id,
+      });
 
       // Send users and room info
-      io.to(joinedUser.room).emit("room-users", {
-        room: joinedUser.room,
-        users: getRoomUsers(joinedUser.room),
-      });
-      joinedUser = null;
-    }
-    if (dataCollectionInterval) {
-      clearInterval(dataCollectionInterval);
-    }
-  });
+      // io.to(user.room).emit("room-users", {
+      //   room: user.room,
+      //   users: getRoomUsers(room),
+      // });
 
-  // Listen to WebcamOn
-  socket.on("webcam-on", () => {
-    if (joinedUser) {
-      joinedUser.cam = true;
-      io.to(joinedUser.room).emit("add-webcam-icon", user.id);
-    }
-  });
+      if (dataCollectionInterval) {
+        clearInterval(dataCollectionInterval);
+      }
+    });
+    // Listen to WebcamOn
+    socket.on("webcam-on", () => {
+      user.cam = true;
+      io.to(user.room).emit("add-webcam-icon", user.id);
+    });
 
-  // Listen to webcamOff
-  socket.on("webcam-off", () => {
-    if (joinedUser) {
-      joinedUser.cam = false;
+    // Listen to webcamOff
+    socket.on("webcam-off", () => {
+      user.cam = false;
       io.to(user.room).emit("remove-webcam-icon-stream-called", user.id);
-    }
-  });
+    });
 
-  socket.on("room-chat-message-post", (message) => {
-    console.log("meesage ");
-    console.log(joinedUser);
-    if (joinedUser) {
+    socket.on("room-chat-message-post", (message) => {
+      console.log("meesage ");
       console.log("recived a new message in chat", message);
-      io.to(joinedUser.room).emit("room-chat-message-post", message);
-    }
-  });
+      io.to(user.room).emit("room-chat-message-post", message);
+    });
 
-  socket.on("room-chat-message-history", () => {
-    const user = joinedUser;
-
-    if (user) {
+    socket.on("room-chat-message-history", () => {
       console.log("sending message history");
       io.to(user.id).emit("room-chat-message-all", { messages: [] });
-    }
-  });
-  socket.on("get-image-response", (data) => {
-    try {
-      getImageResults(data.img).then((results) => {
-        console.log(joinedUser);
-        console.log(results, results.absent ? "absent" : "emotions");
-        const room = joinedUser ? joinedUser.room : "";
-        if (room) {
+    });
+    socket.on("get-image-response", (data) => {
+      try {
+        getImageResults(data.img).then((results) => {
+          console.log(user);
+          console.log(results, results.absent ? "absent" : "emotions");
           return axios
             .post(`http://localhost:8080/conference/${room}/metadata`, {
-              user: joinedUser,
+              user,
               metadata: results,
               type: results.absent ? "absent" : "emotions",
             })
@@ -143,11 +133,11 @@ io.on("connection", (socket) => {
             .catch((err) => {
               console.log(err);
             });
-        }
-      });
-    } catch (err) {
-      console.log(err);
-    }
+        });
+      } catch (err) {
+        console.log(err);
+      }
+    });
   });
 });
 

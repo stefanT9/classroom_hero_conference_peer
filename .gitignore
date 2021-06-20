@@ -26,3 +26,4 @@ tsconfig.tsbuildinfo
 .vscode
 env
 licenta-297213-54e4f2eac639.json
+sendgrid.env

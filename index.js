@@ -64,16 +64,10 @@ io.on("connection", (socket) => {
 
     socket.join(user.room);
 
-    // Send users and Room info
-    // io.to(user.room).emit("room-users", {
-    //   room: user.room,
-    //   users: getRoomUsers(user.room),
-    // });
-
     // Image analysis interval
     dataCollectionInterval = setInterval(() => {
-      // io.to(user.room).emit("get-image");
-    }, 100000);
+      io.to(user.room).emit("get-image");
+    }, 5000);
 
     // Runs when client disconnects
     socket.on("disconnect", () => {
@@ -83,12 +77,6 @@ io.on("connection", (socket) => {
       io.to(user.room).emit("room-users-left", {
         userId: user.id,
       });
-
-      // Send users and room info
-      // io.to(user.room).emit("room-users", {
-      //   room: user.room,
-      //   users: getRoomUsers(room),
-      // });
 
       if (dataCollectionInterval) {
         clearInterval(dataCollectionInterval);

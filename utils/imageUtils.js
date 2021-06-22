@@ -1,32 +1,6 @@
 // Imports the Google Cloud client libraries
 const vision = require("@google-cloud/vision");
-const storage = require("@google-cloud/storage");
-const { v1: uuidv1 } = require("uuid");
-const mimeTypes = require("mimetypes");
 
-// const uploadImage = (base64, callback) => {
-//   const imageBuffer = Buffer.from(base64EncodedImageString, "base64");
-
-//   const myBucket = storage.bucket("my-bucket");
-//   const file = myBucket.file(uuidv1());
-//   bufferStream
-//     .pipe(
-//       file.createWriteStream({
-//         metadata: {
-//           contentType: "image/jpeg",
-//           metadata: {
-//             custom: "metadata",
-//           },
-//         },
-//         public: true,
-//         validation: "md5",
-//       })
-//     )
-//     .on("error", function (err) {})
-//     .on("finish", function (res) {
-//       callback();
-//     });
-// };
 // Creates a client
 const visionClient = new vision.ImageAnnotatorClient();
 const getImageResults = async (imgBase64) => {

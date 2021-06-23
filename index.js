@@ -66,7 +66,11 @@ io.on("connection", (socket) => {
 
     // Image analysis interval
     dataCollectionInterval = setInterval(() => {
-      io.to(user.room).emit("get-image");
+      try {
+        io.to(user.room).emit("get-image");
+      } catch (err) {
+        console.log(err);
+      }
     }, 5000);
 
     // Runs when client disconnects
@@ -106,22 +110,26 @@ io.on("connection", (socket) => {
     });
     socket.on("get-image-response", (data) => {
       try {
-        getImageResults(data.img).then((results) => {
-          console.log(user);
-          console.log(results, results.absent ? "absent" : "emotions");
-          return axios
-            .post(`http://localhost:8080/conference/${room}/metadata`, {
-              user,
-              metadata: results,
-              type: results.absent ? "absent" : "emotions",
-            })
-            .then(({ data }) => {
-              console.log(data);
-            })
-            .catch((err) => {
-              console.log(err);
-            });
-        });
+        getImageResults(data.img)
+          .then((results) => {
+            console.log(user);
+            console.log(results, results.absent ? "absent" : "emotions");
+            return axios
+              .post(`http://localhost:8080/conference/${room}/metadata`, {
+                user,
+                metadata: results,
+                type: results.absent ? "absent" : "emotions",
+              })
+              .then(({ data }) => {
+                console.log(data);
+              })
+              .catch((err) => {
+                console.log(err);
+              });
+          })
+          .catch((err) => {
+            console.log("error on get-image-response", err.message);
+          });
       } catch (err) {
         console.log(err);
       }
